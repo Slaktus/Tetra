@@ -116,15 +116,18 @@ circle.SetPosition(new float2(3,1));
 rectangle.SetRotation(math.radians(45));
 polygon.SetRotation(math.radians(-22.5f));
 
+//Each collider has an AABB for quick candidate elimination
+bool aabbTest = Collide.Intersects(circle.aabb, polygon.aabb);
+
 //The order of arguments does not matter in intersection tests
-bool rectangleCircleIntersection = Collide.Intersect(rectangle, circle);
-bool circleRectangleIntersection = Collide.Intersect(circle, rectangle);
+bool rectangleCircleIntersection = Collide.Intersects(rectangle, circle);
+bool circleRectangleIntersection = Collide.Intersects(circle, rectangle);
 
-bool polygonRectangleIntersection = Collide.Intersect(polygon, rectangle);
-bool rectanglePolygonIntersection = Collide.Intersect(rectangle, polygon);
+bool polygonRectangleIntersection = Collide.Intersects(polygon, rectangle);
+bool rectanglePolygonIntersection = Collide.Intersects(rectangle, polygon);
 
-bool circlePolygonIntersection = Collide.Intersect(circle, polygon);
-bool polygonCircleIntersection = Collide.Intersect(polygon, circle);
+bool circlePolygonIntersection = Collide.Intersects(circle, polygon);
+bool polygonCircleIntersection = Collide.Intersects(polygon, circle);
 
 //Depenetration checks provides a valid depenetration vector for the first argument from the second argument
 float2 polygonDepenetration = Collide.Depenetrate(polygon, rectangle);
@@ -142,3 +145,137 @@ bool raycastIntersectsRectangle = Collide.Raycast(new float2(-5, 1), new float2(
 bool raycastIntersectsCircle = Collide.Raycast(new float2(-1, 8), new float2(5, 3), circle);
 bool raycastIntersectsLine = Collide.Raycast(new float2(-1,1), new float(3,2), new float2(5,2), new float2(6,0));
 ```
+#### Collision system
+The collision system is simple, and allows groups of colliders to be tested against each other. It features simple broad and narrow phases, and features a lookup system that mirrors the working of the `Collide` class explained above. The collision system loosely associates colliders with types. The collision system is entirely free-standing, but is used by the session management system. The goal is to offer maximum flexibility and ease of use, at the price of speed and implementation simplicity.
+
+_Usage:_
+```C#
+CollisionSystem collisionSystem = new CollisionSystem(gridSize: 10, int groupCount = 5);
+
+collisionSystem.AddCollisionGroup<Trigger>();
+collisionSystem.AddCollisionGroup<Avatar>();
+collisionSystem.AddCollisionGroup<Bullet>();
+collisionSystem.AddCollisionGroup<Enemy>();
+collisionSystem.AddCollisionGroup<World>();
+
+collisionSystem.AddGroupToCheck<Avatar, Enemy>(containedBy: false, intersect: true, depenetrate: false);
+collisionSystem.AddGroupToCheck<Bullet, Enemy>(containedBy: false, intersect: true, depenetrate: true);
+collisionSystem.AddGroupToCheck<Avatar, World>(containedBy: false, intersect: true, depenetrate: true);
+collisionSystem.AddGroupToCheck<Bullet, World>(containedBy: false, intersect: true, depenetrate: true);
+collisionSystem.AddGroupToCheck<Enemy, World>(containedBy: false, intersect: true, depenetrate: true);
+collisionSystem.AddGroupToCheck<Avatar, Trigger>(containedBy: true, intersect: true, depenetrate: false);
+
+collisionSystem.AddCollider<Trigger>(goal.collider);
+collisionSystem.AddCollider<Avatar>(avatar.collider);
+collisionSystem.AddCollider<Bullet>(bullet.collider);
+collisionSystem.AddCollider<Enemy>(enemy.collider);
+
+for (int i = 0; world.colliders.Count > i; i++)
+    collision.AddCollider<World>(world.colliders[i]);
+
+collisionSystem.Update();
+
+float2 avatarDepenetrateFromWorld = float2.zero;
+
+for (int i = 0; world.colliders.Count > i; i++)
+    avatarDepenetrateFromWorld += collisionSystem.Depenetrate(avatar.collider, world.colliders[i]);
+    
+bool avatarIntersectsEnemy = collisionSystem.Intersects(avatar, enemy);
+bool bulletIntersectsEnemy = collisionSystem.Intersects(bullet, enemy);
+bool avatarContainedByGoal = collisionSystem.ContainedBy(avatar, goal);
+```
+
+### Command system
+The command system is a messaging system that builds a command queue that can be dispatched to entities after all commands have been issued. Commands can optionally be recorded and supports playback via the session management system. The command system is built around a state machine-esque abstraction called a `Routine` which consumes commands to modify its state. The `Routine` is intended as a way to encapsulate behaviour, and the command system is a way to control behaviours and record their state changes.
+
+Both routines and commands are independent of the entity and session management systems, but the recorder depends on the session management system – at least for now.
+
+_Usage:_
+```C#
+public class Avatar : Entity, ICommandable
+{
+    public override void Activate() { }
+    public override void Deactivate() => session.EnqueueCommand(new Move.Command(Routine.State.End);
+    
+    public override void Update()
+    {
+        float2 inputDirection = input.direction;
+        bool2 compareInput = move.input != inputDirection;
+        bool validInput = math.lengthsq(inputDirection) > 0;
+        
+        if ((move.state == Routine.State.Running && validInput && (compareInput.x || compareInput.y)) || (move.state != Routine.State.Running && validInput))
+            session.EnqueueCommand(new Move.Command(Routine.State.Begin, input.direction);
+        else if (move.state == Routine.State.Running && !validInput)
+            session.EnqueueCommand(new Move.Command(Routine.State.End));
+        
+        move.Update();
+    }
+    
+    public void Command<T>(T command) where T : struct, IRoutineHandleable
+    {
+        switch(command)
+        {
+            case Move.Command moveCommand:
+                move.Handle(moveCommand);
+        }
+    }
+    
+    private Move move { get; }
+    private Input input { get; }
+    
+    public Avatar()
+    {
+        move = new Move(this);
+        input = new Input();
+    }
+    
+    public class Move : Routine<Avatar, Move.Command>
+    {
+        public override void Update()
+        {
+            if (state != State.Running)
+            {
+                speed *= deceleration;
+                
+                if (minSpeed > speed)
+                    speed = 0;
+                
+                velocity = math.normalizeSafe(velocity) * speed;
+            }
+            
+            client.SetPosition(client.position + velocity);
+            base.Update();
+        }
+        
+        protected override void Begin(Command command) => input = command.input;
+        
+        protected override void Running() => velocity = input * speed = math.clamp(speed * acceleration, minSpeed, maxSpeed);
+        
+        protected override void End(Command command) => input = command.input;
+        
+        public float2 input { get; private set; }
+        
+        private float2 velocity { get; set; }
+        private float speed { get; set; }
+        private float acceleration = 1.1f;
+        private float deceleration = 0.8f;
+        private float maxSpeed = 5;
+        private float minSpeed = 2;
+        
+        public Move(Avatar client) : base(client) { }
+
+        public struct Command : IRoutineHandleable
+        {
+            public float2 input { get; }
+            public State state { get; }
+
+            public Command(State state, float2 input = default)
+            {
+                this.state = state;
+                this.input = input;
+            }
+        }
+    }
+}
+```
+
