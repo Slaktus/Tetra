@@ -12,9 +12,9 @@ In short, the goal of Tetra is to no longer have to write `using UnityEngine;` a
 + Collections
 + 2D Collision detection and resolution
 + Command system
-+ Entity management
++ Entity and session management
++ Game management
 + Rendering
-+ Session management
 + Splines
 + Timing
 + Tweening
@@ -249,7 +249,7 @@ public class Avatar : Entity, ICommandable
         
         protected override void Begin(Command command) => input = command.input;
         
-        protected override void Running() => velocity = input * speed = math.clamp(speed * acceleration, minSpeed, maxSpeed);
+        protected override void Running() => velocity = input * (speed = math.clamp(speed * acceleration, minSpeed, maxSpeed));
         
         protected override void End(Command command) => input = command.input;
         
@@ -279,3 +279,5 @@ public class Avatar : Entity, ICommandable
 }
 ```
 
+### Entity management
+A system for handling lifetime of pooled entities as well as collisions, commands, rendering, timing and update. The entity management system features a set of conveniences for entities that also ties into the game and UI management layers. It features all the facilities entities need to add and remove as well as iterate and message entity instances.
