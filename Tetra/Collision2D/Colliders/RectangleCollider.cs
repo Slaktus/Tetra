@@ -10,8 +10,8 @@ namespace Tetra.Collision
         public void SetDimensions(float width, float height)
         {
             radians = 0;
-            this.width = width;
-            this.height = height;
+            givenWidth = width;
+            givenHeight = height;
 
             SetPoints();
             SetEdges();
@@ -53,10 +53,10 @@ namespace Tetra.Collision
         private void SetPoints()
         {
             points.Clear();
-            points.Add(new float2(-width * 0.5f, -height * 0.5f));
-            points.Add(new float2(-width * 0.5f, height * 0.5f));
-            points.Add(new float2(width * 0.5f, height * 0.5f));
-            points.Add(new float2(width * 0.5f, -height * 0.5f));
+            points.Add(new float2(-givenWidth * 0.5f, -givenHeight * 0.5f));
+            points.Add(new float2(-givenWidth * 0.5f, givenHeight * 0.5f));
+            points.Add(new float2(givenWidth * 0.5f, givenHeight * 0.5f));
+            points.Add(new float2(givenWidth * 0.5f, -givenHeight * 0.5f));
             SetAABB();
         }
 
@@ -79,17 +79,17 @@ namespace Tetra.Collision
             axes.Add(edges[edges.Count - 1] / math.lengthsq(edges[edges.Count - 1]));
         }
 
-        public float width { get; private set; }
-        public float height { get; private set; }
         public override float2 center => float2.zero;
-        public float xMin => position.x - (width * 0.5f);
-        public float xMax => position.x + (width * 0.5f);
-        public float yMin => position.y - (height * 0.5f);
-        public float yMax => position.y + (height * 0.5f);
+        public float givenWidth { get; private set; }
+        public float givenHeight { get; private set; }
+        public float xMin => position.x - (givenWidth * 0.5f);
+        public float xMax => position.x + (givenWidth * 0.5f);
+        public float yMin => position.y - (givenHeight * 0.5f);
+        public float yMax => position.y + (givenHeight * 0.5f);
         public List<float2> axes { get; } = new List<float2>(2);
 
         public RectangleCollider() : base() => SetDimensions(0, 0);
         public RectangleCollider(float width, float height) : base() => SetDimensions(width, height);
-        public RectangleCollider(RectangleCollider rectangleCollider) : this(rectangleCollider.width, rectangleCollider.height) { }
+        public RectangleCollider(RectangleCollider rectangleCollider) : this(rectangleCollider.givenWidth, rectangleCollider.givenHeight) { }
     }
 }
