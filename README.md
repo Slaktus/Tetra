@@ -280,4 +280,31 @@ public class Avatar : Entity, ICommandable
 ```
 
 ### Entity management
-A system for handling lifetime of pooled entities as well as collisions, commands, rendering, timing and update. The entity management system features a set of conveniences for entities that also ties into the game and UI management layers. It features all the facilities entities need to add and remove as well as iterate and message entity instances.
+A system for handling lifetime of pooled entities as well as collisions, commands, rendering, timing and update. The entity management system features a set of conveniences for entities that also ties into the game and UI management layers. It features all the facilities entities need to add and remove as well as iterate and message entity instances. Entity management deals with the handling of all the dependencies constituting a session. The idea is that a game may contain multiple sessions at the same time.
+
+#### Entity
+Very simple entity class with minimal set of features: material property block, position, rotation, scale, matrix4x4, timescale, id and active flag. Designed to be managed by the `Roster`, `Context` and `Session` stack and be drawn using the Tetra rendering stack.
+
+#### Roster
+Handles a pool of entities and all the active entity instances from that pool. Handles updating, adding and removing of instances as well as their time scale, which is stored locally and applied when an instance is fetched from the pool.
+
+#### Context
+Handles all the rosters in a session, providing the interfaces the session needs to interact with the rosters.
+
+#### Session
+The session handles all the components necessary to drive a game:
+
++ UI
++ Timing
++ Cameras
++ Entities
++ Recorder
++ Rendering
++ Command system
++ Collision system
+
+The session is managed by the `Game` layer, which is intended to construct all the dependencies the `Session` handles. The session features convenience methods for the command system, recorder, context/roster/entity stack, cameras and the collision system.
+
+The session is intended to restrict entities' access to the game system, promoting encapsulation by preventing the entities' from accessing most of the state in the game system. The Instead, the `Game` layer should observe the state of the session and contain the logic not directly related to entity behaviour.
+
+#### Game management
