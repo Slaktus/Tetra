@@ -1,5 +1,5 @@
 # Tetra
-### An opinion on how to make games in Unity
+## An opinion on how to make games in Unity
 
 ### Overview
 Tetra is a framework that abstracts away a lot of Unity's rather opinionated coding style and replaces it with _my_ rather opinionated coding style. It also features stand-alone components that can be used outside the rest of the framework. It provides simple, allocation-free solutions for common problems in something approaching idiomatic modern C#.
